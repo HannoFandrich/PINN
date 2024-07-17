@@ -12,12 +12,12 @@ from tensorflow import keras
 
 
 ### Initials
-u_init=[1,1,1]
+u_init=[1,1]
 n_u=len(u_init)
 f_init=[1,1]
 n_f=len(f_init)
-parameters='a, b'
-parameters_init=[1,1]
+parameters='a, b, c, d'
+parameters_init=[1,1,1,1]
 n_parameters=len(parameters_init)
 
 ### ODE Residuals
@@ -25,19 +25,16 @@ n_parameters=len(parameters_init)
 
 def ODE_residual(du_dt,f,u,parameters):
     du1_dt = du_dt[:, :1] 
-    du2_dt = du_dt[:, 1:2]
-    du3_dt = du_dt[:, 2:]
+    du2_dt = du_dt[:, 1:]
     f1=f[:, :1]
     f2=f[:, 1:]
-    a=parameters[0]
-    b=parameters[1]
     u1=u[:, :1]
-    u2=u[:, 1:2]
+    u2=u[:, 1:]
+    p=parameters
 
-    res1 = du1_dt - f1
-    res2 = du2_dt - f2
-    res3 = du3_dt - (a*u1*u2 + b)
-    ODE_residual = tf.concat([res1, res2, res3], axis=1)
+    res1 = du1_dt - p[0]-u1-(p[1]*u1)*(1+p[2]*u2**4)
+    res2 = du2_dt - (p[1]*u1)*(1+p[2]*u2**4)-p[3]*u2
+    ODE_residual = tf.concat([res1, res2], axis=1)
     return ODE_residual
 
 
@@ -129,17 +126,17 @@ def u_net(input_layer, n_rates):
     output = tf.keras.layers.Dense(n_rates)(hidden)
     return output
 
-def f_net(input_layers, n_ODEs, parameters_init=None):
+def f_net(input_layers, n_parameters, parameters_init=None):
     """Definition of the network for f prediction."""
 
     hidden = tf.keras.layers.Concatenate()(input_layers)
     for _ in range(2):
         hidden = tf.keras.layers.Dense(50, activation="tanh")(hidden)
-    output = tf.keras.layers.Dense(n_ODEs)(hidden)
+    output = tf.keras.layers.Dense(n_parameters)(hidden)
     output = ParameterLayer(parameters_init)(output)
     return output
 
-def create_PINN(n_rates, n_ODEs, parameters_init=None, verbose=False):
+def create_PINN(n_rates, n_parameters, parameters_init=None, verbose=False):
     """Definition of a physics-informed neural network.
 
     Args:
@@ -159,7 +156,7 @@ def create_PINN(n_rates, n_ODEs, parameters_init=None, verbose=False):
     u = u_net(t_input, n_rates)
 
     # f-NN
-    f = f_net([t_input, u], n_ODEs, parameters_init)
+    f = f_net([t_input, u], n_parameters, parameters_init)
 
     # PINN model
     model = tf.keras.models.Model(inputs=t_input, outputs=[u, f])
@@ -305,7 +302,7 @@ optimizer = keras.optimizers.Adam(learning_rate=0.002)
 with tf.device("CPU:0"):
 
     # Instantiate the PINN model
-    PINN = create_PINN(n_rates=n_u,n_ODEs=n_f,parameters_init=parameters_init)
+    PINN = create_PINN(n_rates=n_u,n_parameters=n_parameters,parameters_init=parameters_init)
     PINN.compile(optimizer=optimizer)
 
     # Configure callbacks

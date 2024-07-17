@@ -40,6 +40,7 @@ def simulate_ODEs(u_init, t_span, obs_num):
 
     return u_obs
 
+
 u_obs=simulate_ODEs([1, 0.8, 0.5],
                     [0, 10],
                     1000)
