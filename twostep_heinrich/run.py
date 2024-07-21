@@ -14,7 +14,7 @@ from tensorflow import keras
 y_init = [1, 0]
 params = [6.77, 1.01, 1.26, 5.11]
 t_span=[0,10]
-obs_num=500
+obs_num=100
 
 def simulate_ODEs(u_init, params, t_span, obs_num):
     """Simulate the ODE system and obtain observational data.
