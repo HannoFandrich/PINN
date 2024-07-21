@@ -26,8 +26,6 @@ n_parameters=len(parameters_init)
 def ODE_residual(du_dt,f,u,parameters):
     du1_dt = du_dt[0]
     du2_dt = du_dt[1]
-    #f1=f[:, :1]
-    #f2=f[:, 1:]
     u1=u[0]
     u2=u[1]
     p=parameters
@@ -46,7 +44,7 @@ tf.random.set_seed(42)
 n_epochs = 3000
 IC_weight= tf.constant(0.7, dtype=tf.float32)
 ODE_weight= tf.constant(0.7, dtype=tf.float32)
-data_weight= tf.constant(1.0, dtype=tf.float32)
+data_weight= tf.constant(1, dtype=tf.float32)
 
 
 ### Data Import
@@ -383,8 +381,10 @@ df = pd.DataFrame({
     't': t.numpy().flatten()})
 for i in range(n_u):
     df['u'+str(i+1)]=np.asarray(u[:,i])
+'''
 for i in range(n_f):
     df['f'+str(i+1)]=np.asarray(f[:,i])
+'''
 df.to_csv('results/model_data.csv', index=False)
 
 np.savetxt('results/parameters.csv', params_list[-1], delimiter=',', header=parameters, comments='')

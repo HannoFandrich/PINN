@@ -50,7 +50,7 @@ n_rates=df_data.shape[1]-1
 
 fig, ax = plt.subplots(1,n_rates, figsize=(4*n_rates, 4))
 for i in range(n_rates):
-    ax[i].scatter(df_test['t'], df_test['u'+str(i+1)], label='truth')
+    ax[i].scatter(df_test['t'], df_test['u'+str(i)], label='truth')
     ax[i].scatter(df_data['t'], df_data['u'+str(i+1)], label='predict')
     ax[i].set_title('u'+str(i+1))
 for axs in ax:
