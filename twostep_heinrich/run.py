@@ -14,7 +14,7 @@ from tensorflow import keras
 y_init = [1, 0]
 params = [6.77, 1.01, 1.26, 5.11]
 t_span=[0,10]
-obs_num=100
+obs_num=1000
 
 def simulate_ODEs(u_init, params, t_span, obs_num):
     """Simulate the ODE system and obtain observational data.
@@ -40,31 +40,21 @@ def simulate_ODEs(u_init, params, t_span, obs_num):
     t_eval = np.linspace(t_span[0], t_span[1], obs_num)
     sol = solve_ivp(odes, t_span, u_init, args=(params,), method='RK45', t_eval=t_eval)
 
-    # Add noise/ reduce data
-    th_point = 5
-    pseudo_time = sol.t[::th_point]
-    y0_pseudo=[]
-    y1_pseudo=[]
-    for _ in range(6):
-        y0_new= [a+np.random.normal(0, a/10) for a in sol.y[0,::th_point]]
-        y1_new= [a+np.random.normal(0, a/5) for a in sol.y[1,::th_point]]
-        y0_pseudo.append(y0_new)
-        y1_pseudo.append(y1_new)
-
 
     # Restrcture obtained data
-    u_obs = np.column_stack((pseudo_time, np.mean(y0_pseudo,axis=0),np.std(y0_pseudo,axis=0),np.mean(y1_pseudo,axis=0),np.std(y1_pseudo,axis=0)))
+    th_point=1
+    u_obs = np.column_stack((sol.t[::th_point], sol.y[0,::th_point] , sol.y[1,::th_point]))
 
     return u_obs
 
 u_obs=simulate_ODEs(y_init,
                     params,
-                    [0, 10],
+                    t_span,
                     obs_num)
-np.savetxt('data/data.csv', u_obs, delimiter=',', header='t,u0,u0_std,u1,u1_std', comments='')
+np.savetxt('data/data.csv', u_obs, delimiter=',', header='t,u0,u1', comments='')
 
 u_obs_test=simulate_ODEs(y_init,
                          params,
-                        [0, 10],
+                        t_span,
                         obs_num)
-np.savetxt('data/data_test.csv', u_obs, delimiter=',', header='t,u0,u0_std,u1,u1_std', comments='')
+np.savetxt('data/data_test.csv', u_obs, delimiter=',', header='t,u0,u1', comments='')

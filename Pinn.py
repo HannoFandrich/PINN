@@ -24,15 +24,16 @@ n_parameters=len(parameters_init)
 ### dependend on ODE system!
 
 def ODE_residual(du_dt,f,u,parameters):
-    du1_dt = du_dt[:, :1] 
-    du2_dt = du_dt[:, 1:2]
-    du3_dt = du_dt[:, 2:]
-    f1=f[:, :1]
-    f2=f[:, 1:]
+    du1_dt = du_dt[0] 
+    du2_dt = du_dt[1]
+    du3_dt = du_dt[2]
+    f1=f[0]
+    f2=f[1]
+    u1=u[0]
+    u2=u[1]
     a=parameters[0]
     b=parameters[1]
-    u1=u[:, :1]
-    u2=u[:, 1:2]
+    
 
     res1 = du1_dt - f1
     res2 = du2_dt - f2
@@ -104,7 +105,7 @@ class ParameterLayer(tf.keras.layers.Layer):
         )
     def call(self, inputs):
         # Define the forward pass here
-        return inputs * self.parameters
+        return inputs #* self.parameters 
 
     def get_config(self):
         config = super().get_config()
@@ -193,6 +194,9 @@ def ODE_residual_calculator(t, model,n_u):
 
     # Calculate gradients
     du_dt = tape.batch_jacobian(u, t)[:, :, 0]
+    du_dt=[du_dt[:,a:a+1] for a in range(len(du_dt[0]))]
+    f=[f[:,a:a+1] for a in range(len(f[0]))]
+    u=[u[:,a:a+1] for a in range(len(u[0]))]
 
     # Compute residuals
     res_arr=ODE_residual(du_dt,f,u,parameters)
@@ -291,10 +295,6 @@ class PrintParameters(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         print(f"\nparameters: {self.model.layers[-1].parameters.numpy()}")
 
-n_epochs = 1000
-IC_weight= tf.constant(1.0, dtype=tf.float32)
-ODE_weight= tf.constant(1.0, dtype=tf.float32)
-data_weight= tf.constant(1.0, dtype=tf.float32)
 loss_tracker = LossTracking()
 val_loss_hist = []
 params_list = []
@@ -338,7 +338,7 @@ with tf.device("CPU:0"):
 
         # Parameter recording
         params_list.append(PINN.layers[-1].parameters.numpy())
-
+        '''
         ####### Validation
         val_res = ODE_residual_calculator(tf.reshape(tf.linspace(0.0, 10.0, 1000), [-1, 1]), PINN,n_u=n_u)
         val_ODE = tf.cast(tf.reduce_mean(tf.square(val_res)), tf.float32)
@@ -353,6 +353,21 @@ with tf.device("CPU:0"):
         # Callback at the end of epoch
         callbacks.on_epoch_end(epoch, logs={'val_loss': val_IC+val_ODE})
         val_loss_hist.append(val_IC+val_ODE)
+        '''
+        ####### Validation
+        val_res = ODE_residual_calculator(X_train_data, PINN,n_u=n_u)
+        val_ODE = tf.cast(tf.reduce_mean(tf.square(val_res)), tf.float32)
+
+        val_pred_init, _ = PINN.predict(tf.zeros((1, 1)))
+        val_IC = tf.reduce_mean(tf.square(val_pred_init - u_init))
+        #print(f"val_IC: {val_IC.numpy():.4e}, val_ODE: {val_ODE.numpy():.4e}, lr: {PINN.optimizer.lr.numpy():.2e}")
+        print(f"val_IC: {val_IC.numpy():.4e}, val_ODE: {val_ODE.numpy():.4e}, lr: {PINN.optimizer.learning_rate.numpy():.2e}")
+
+        
+        # Callback at the end of epoch
+        callbacks.on_epoch_end(epoch, logs={'val_loss': tf.cast(val_IC, dtype=tf.float32)+tf.cast(val_ODE, dtype=tf.float32)})
+        val_loss_hist.append(tf.cast(val_IC, dtype=tf.float32)+tf.cast(val_ODE, dtype=tf.float32))
+
 
         # Test dataset
         pred_test, _ = PINN.predict(X_test, batch_size=12800)
@@ -387,8 +402,10 @@ df = pd.DataFrame({
     't': t.numpy().flatten()})
 for i in range(n_u):
     df['u'+str(i+1)]=np.asarray(u[:,i])
+'''
 for i in range(n_f):
     df['f'+str(i+1)]=np.asarray(f[:,i])
+'''
 df.to_csv('results/model_data.csv', index=False)
 
 np.savetxt('results/parameters.csv', params_list[-1], delimiter=',', header=parameters, comments='')

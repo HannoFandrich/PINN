@@ -10,7 +10,13 @@ import time
 import tensorflow as tf
 from tensorflow import keras
 
-def simulate_ODEs(u_init, t_span, obs_num):
+
+y_init = [1, 0]
+params = [6.77, 1.01, 1.26, 5.11]
+t_span=[0,10]
+obs_num=100
+
+def simulate_ODEs(u_init, params, t_span, obs_num):
     """Simulate the ODE system and obtain observational data.
 
     Args:
@@ -25,28 +31,31 @@ def simulate_ODEs(u_init, t_span, obs_num):
     """
 
     # Define the target ODEs
-    def odes(t, u):
+    def odes(t, u, p):
         du1dt = np.exp(-t/10) * u[1] * u[2]
         du2dt = u[0] * u[2]
-        du3dt = -2 * u[0] * u[1]
+        du3dt = p[0] * u[0] * u[1] +p[1]
         return [du1dt, du2dt, du3dt]
 
     # Solve ODEs
     t_eval = np.linspace(t_span[0], t_span[1], obs_num)
-    sol = solve_ivp(odes, t_span, u_init, method='RK45', t_eval=t_eval)
+    sol = solve_ivp(odes, t_span, u_init, args=(params,), method='RK45', t_eval=t_eval)
+
 
     # Restrcture obtained data
-    u_obs = np.column_stack((sol.t, sol.y[0], sol.y[1], sol.y[2]))
+    th_point=1
+    u_obs = np.column_stack((sol.t[::th_point], sol.y[0,::th_point] , sol.y[1,::th_point], sol.y[2,::th_point]))
 
     return u_obs
 
-
-u_obs=simulate_ODEs([1, 0.8, 0.5],
-                    [0, 10],
-                    1000)
+u_obs=simulate_ODEs(y_init,
+                    params,
+                    t_span,
+                    obs_num)
 np.savetxt('data/data.csv', u_obs, delimiter=',', header='t,u1,u2,u3', comments='')
 
-u_obs_test=simulate_ODEs([1, 0.8, 0.5],
-                    [0, 10],
-                    1000)
+u_obs_test=simulate_ODEs(y_init,
+                         params,
+                        t_span,
+                        obs_num)
 np.savetxt('data/data_test.csv', u_obs, delimiter=',', header='t,u1,u2,u3', comments='')

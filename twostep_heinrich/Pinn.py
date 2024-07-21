@@ -24,16 +24,16 @@ n_parameters=len(parameters_init)
 ### dependend on ODE system!
 
 def ODE_residual(du_dt,f,u,parameters):
-    du1_dt = du_dt[:, :1] 
-    du2_dt = du_dt[:, 1:]
-    f1=f[:, :1]
-    f2=f[:, 1:]
-    u1=u[:, :1]
-    u2=u[:, 1:]
+    du1_dt = du_dt[0]
+    du2_dt = du_dt[1]
+    #f1=f[:, :1]
+    #f2=f[:, 1:]
+    u1=u[0]
+    u2=u[1]
     p=parameters
 
-    res1 = du1_dt - p[0]-u1-(p[1]*u1)*(1+p[2]*u2**4)
-    res2 = du2_dt - (p[1]*u1)*(1+p[2]*u2**4)-p[3]*u2
+    res1 = du1_dt - (p[0]-u1-(p[1]*u1)*(1+p[2]*u2**4))
+    res2 = du2_dt - ((p[1]*u1)*(1+p[2]*u2**4)-p[3]*u2)
     ODE_residual = tf.concat([res1, res2], axis=1)
     return ODE_residual
 
@@ -43,9 +43,9 @@ def ODE_residual(du_dt,f,u,parameters):
 
 ### CONFIG
 tf.random.set_seed(42)
-n_epochs = 1000
-IC_weight= tf.constant(1.0, dtype=tf.float32)
-ODE_weight= tf.constant(1.0, dtype=tf.float32)
+n_epochs = 3000
+IC_weight= tf.constant(0.7, dtype=tf.float32)
+ODE_weight= tf.constant(0.7, dtype=tf.float32)
 data_weight= tf.constant(1.0, dtype=tf.float32)
 
 
@@ -101,7 +101,7 @@ class ParameterLayer(tf.keras.layers.Layer):
         )
     def call(self, inputs):
         # Define the forward pass here
-        return inputs * self.parameters
+        return inputs #* tf.reduce_prod(self.parameters) 
 
     def get_config(self):
         config = super().get_config()
@@ -126,17 +126,17 @@ def u_net(input_layer, n_rates):
     output = tf.keras.layers.Dense(n_rates)(hidden)
     return output
 
-def f_net(input_layers, n_parameters, parameters_init=None):
+def f_net(input_layers, n_ODEs, parameters_init=None):
     """Definition of the network for f prediction."""
 
     hidden = tf.keras.layers.Concatenate()(input_layers)
     for _ in range(2):
         hidden = tf.keras.layers.Dense(50, activation="tanh")(hidden)
-    output = tf.keras.layers.Dense(n_parameters)(hidden)
+    output = tf.keras.layers.Dense(n_ODEs)(hidden)
     output = ParameterLayer(parameters_init)(output)
     return output
 
-def create_PINN(n_rates, n_parameters, parameters_init=None, verbose=False):
+def create_PINN(n_rates, n_ODEs, parameters_init=None, verbose=False):
     """Definition of a physics-informed neural network.
 
     Args:
@@ -156,7 +156,7 @@ def create_PINN(n_rates, n_parameters, parameters_init=None, verbose=False):
     u = u_net(t_input, n_rates)
 
     # f-NN
-    f = f_net([t_input, u], n_parameters, parameters_init)
+    f = f_net([t_input, u], n_ODEs, parameters_init)
 
     # PINN model
     model = tf.keras.models.Model(inputs=t_input, outputs=[u, f])
@@ -190,6 +190,9 @@ def ODE_residual_calculator(t, model,n_u):
 
     # Calculate gradients
     du_dt = tape.batch_jacobian(u, t)[:, :, 0]
+    du_dt=[du_dt[:,a:a+1] for a in range(len(du_dt[0]))]
+    f=[f[:,a:a+1] for a in range(len(f[0]))]
+    u=[u[:,a:a+1] for a in range(len(u[0]))]
 
     # Compute residuals
     res_arr=ODE_residual(du_dt,f,u,parameters)
@@ -288,10 +291,7 @@ class PrintParameters(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         print(f"\nparameters: {self.model.layers[-1].parameters.numpy()}")
 
-n_epochs = 1000
-IC_weight= tf.constant(1.0, dtype=tf.float32)
-ODE_weight= tf.constant(1.0, dtype=tf.float32)
-data_weight= tf.constant(1.0, dtype=tf.float32)
+
 loss_tracker = LossTracking()
 val_loss_hist = []
 params_list = []
@@ -302,7 +302,7 @@ optimizer = keras.optimizers.Adam(learning_rate=0.002)
 with tf.device("CPU:0"):
 
     # Instantiate the PINN model
-    PINN = create_PINN(n_rates=n_u,n_parameters=n_parameters,parameters_init=parameters_init)
+    PINN = create_PINN(n_rates=n_u,n_ODEs=n_f,parameters_init=parameters_init)
     PINN.compile(optimizer=optimizer)
 
     # Configure callbacks
@@ -337,10 +337,9 @@ with tf.device("CPU:0"):
         params_list.append(PINN.layers[-1].parameters.numpy())
 
         ####### Validation
-        val_res = ODE_residual_calculator(tf.reshape(tf.linspace(0.0, 10.0, 1000), [-1, 1]), PINN,n_u=n_u)
+        val_res = ODE_residual_calculator(X_train_data, PINN,n_u=n_u)
         val_ODE = tf.cast(tf.reduce_mean(tf.square(val_res)), tf.float32)
 
-        u_init=tf.constant([[1.0, 0.8, 0.5]])
         val_pred_init, _ = PINN.predict(tf.zeros((1, 1)))
         val_IC = tf.reduce_mean(tf.square(val_pred_init - u_init))
         #print(f"val_IC: {val_IC.numpy():.4e}, val_ODE: {val_ODE.numpy():.4e}, lr: {PINN.optimizer.lr.numpy():.2e}")
@@ -348,8 +347,8 @@ with tf.device("CPU:0"):
 
         
         # Callback at the end of epoch
-        callbacks.on_epoch_end(epoch, logs={'val_loss': val_IC+val_ODE})
-        val_loss_hist.append(val_IC+val_ODE)
+        callbacks.on_epoch_end(epoch, logs={'val_loss': tf.cast(val_IC, dtype=tf.float32)+tf.cast(val_ODE, dtype=tf.float32)})
+        val_loss_hist.append(tf.cast(val_IC, dtype=tf.float32)+tf.cast(val_ODE, dtype=tf.float32))
 
         # Test dataset
         pred_test, _ = PINN.predict(X_test, batch_size=12800)
@@ -379,7 +378,7 @@ df.to_csv('results/parameter_history.csv', index=False)
 ### model data
 t = X_train_data
 u, f = PINN.predict(t, batch_size=12800)
-
+print(len(f))
 df = pd.DataFrame({
     't': t.numpy().flatten()})
 for i in range(n_u):
