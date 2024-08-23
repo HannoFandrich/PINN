@@ -28,17 +28,17 @@ n_parameters=len(parameters_init)
 def ODE_residual(du_dt,f,u,parameters):
     p=parameters
 
-    res0=du_dt[0] - (-p[0] * u[0] + p[1] * u[1] - p[2] * u[0] * u[2])  #
-    res1=du_dt[1] - (p[2] * u[0] * u[2] - p[3] * u[1] + p[4] * u[3])  #
-    res2=du_dt[2] -(p[5] * u[2] - p[6] * u[4] + p[7] * u[1]) ##
-    res3=du_dt[3] -(p[8] * u[2] - p[9] * u[3]) ##
-    res4=du_dt[4] - (-p[0] * u[4] + p[1] * u[5] - p[2] * u[4] * u[6])  # 4
-    res5=du_dt[5] - (p[2] * u[4] * u[6] - p[3] * u[5] + p[4] * u[7])  # 5
-    res6=du_dt[6] -(p[8] * u[5] - p[9] * u[6]) ## 6
-    res7=du_dt[7] -(p[10] * u[7] - p[11] * u[8] + p[12] * u[9]) ## 7
-    res8=du_dt[8] - (-p[0] * u[8] + p[1] * u[9] - p[2] * u[8] * u[10])  # 8
-    res9=du_dt[9] - (p[2] * u[8] * u[10] - p[3] * u[9] + p[4] * u[0])  # 9
-    res10 = du_dt[10] -(p[5] * u[9] - p[6] * u[1] + p[7] * u[8])  ## 10
+    res0=du_dt[0] - (-p[0] * u[0] + p[1] * u[1] - p[2] * u[0] * u[2])  
+    res1=du_dt[1] - (p[2] * u[0] * u[2] - p[3] * u[1] + p[4] * u[3])  
+    res2=du_dt[2] -(p[5] * u[2] - p[6] * u[4] + p[7] * u[1]) 
+    res3=du_dt[3] -(p[8] * u[2] - p[9] * u[3]) 
+    res4=du_dt[4] - (-p[0] * u[4] + p[1] * u[5] - p[2] * u[4] * u[6])  
+    res5=du_dt[5] - (p[2] * u[4] * u[6] - p[3] * u[5] + p[4] * u[7])  
+    res6=du_dt[6] -(p[8] * u[5] - p[9] * u[6]) 
+    res7=du_dt[7] -(p[10] * u[7] - p[11] * u[8] + p[12] * u[9]) 
+    res8=du_dt[8] - (-p[0] * u[8] + p[1] * u[9] - p[2] * u[8] * u[10])  
+    res9=du_dt[9] - (p[2] * u[8] * u[10] - p[3] * u[9] + p[4] * u[0])  
+    res10 = du_dt[10] -(p[5] * u[9] - p[6] * u[1] + p[7] * u[8])  
 
     '''
     res0=du_dt[0] -f[0] ## 0
@@ -55,28 +55,6 @@ def ODE_residual(du_dt,f,u,parameters):
     '''
 
 
-    '''
-    res0 = du_dt[0] - (-p[0] * u[0] + p[1] * u[1] - p[2] * u[0] * u[2])  #
-    res1 = du_dt[1] - (p[2] * u[0] * u[2] - p[3] * u[1] + p[4] * u[3])  #
-    res2 = du_dt[2] - (p[5] * u[2] - p[6] * u[4] + p[7] * u[1])
-    res3 = du_dt[3] - (p[8] * u[2] - p[9] * u[3])
-    res4 = du_dt[4] - (p[10] * u[4] - p[11] * u[5] + p[12] * u[6])
-    res5 = du_dt[5] - (p[13] * u[5] - p[14] * u[7] + p[15] * u[8])
-    res6 = du_dt[6] - (p[16] * u[6] - p[17] * u[9])
-    res7 = du_dt[7] - (p[18] * u[7] - p[19] * u[10])
-    res8 = du_dt[8] - (-p[0] * u[8] + p[1] * u[9] - p[2] * u[8] * u[11])  #
-    res9 = du_dt[9] - (p[2] * u[8] * u[11] - p[3] * u[9] + p[4] * u[12])  #
-    res10 = du_dt[10] - (p[5] * u[10] - p[6] * u[13] + p[7] * u[9])
-    res11 = du_dt[11] - (p[8] * u[10] - p[9] * u[11])
-    res12 = du_dt[12] - (p[10] * u[12] - p[11] * u[13] + p[12] * u[14])
-    res13 = du_dt[13] - (p[13] * u[13] - p[14] * u[15] + p[15] * u[16])
-    res14 = du_dt[14] - (p[16] * u[14] - p[17] * u[17])
-    res15 = du_dt[15] - (p[18] * u[15] - p[19] * u[18])
-    res16 = du_dt[16] - (-p[0] * u[16] + p[1] * u[17] - p[2] * u[16] * u[19])  #
-    res17 = du_dt[17] - (p[2] * u[16] * u[19] - p[3] * u[17] + p[4] * u[0])  #
-    res18 = du_dt[18] - (p[5] * u[18] - p[6] * u[1] + p[7] * u[17])
-    res19 = du_dt[19] - (p[8] * u[18] - p[9] * u[19])
-    '''
     ODE_residual = tf.concat([res0,res1, res2, res3,res4,res5,res6,res7,res8,res9,res10], axis=1)
     return ODE_residual
 

@@ -11,14 +11,37 @@ import tensorflow as tf
 from tensorflow import keras
 
 
+
+### Data Import
+data = np.genfromtxt('data/data.csv', delimiter=',', skip_header=1)
+test_data = np.genfromtxt('data/data_test.csv', delimiter=',', skip_header=1)
+
 ### Initials
-u_init=[1,1,1]
+u_init=data[0,1:]
 n_u=len(u_init)
 f_init=[1,1]
 n_f=len(f_init)
 parameters='a, b'
 parameters_init=[1,1]
 n_parameters=len(parameters_init)
+
+
+
+### CONFIG
+tf.random.set_seed(42)
+# architecture of both neural networks: nn_layers with nn_neurons hidden neurons
+nn_layers=3
+nn_neurons=128 
+activation_function= 'swish'
+learning_rate=0.002
+n_epochs = 1500000
+
+IC_weight= tf.constant(1.0, dtype=tf.float32)
+ODE_weight= tf.constant(1.0, dtype=tf.float32)
+data_weight= tf.constant(1.0, dtype=tf.float32)
+
+
+
 
 ### ODE Residuals
 ### dependend on ODE system!
@@ -34,7 +57,6 @@ def ODE_residual(du_dt,f,u,parameters):
     a=parameters[0]
     b=parameters[1]
     
-
     res1 = du1_dt - f1
     res2 = du2_dt - f2
     res3 = du3_dt - (a*u1*u2 + b)
@@ -45,17 +67,6 @@ def ODE_residual(du_dt,f,u,parameters):
 
 
 
-### CONFIG
-tf.random.set_seed(42)
-n_epochs = 1000
-IC_weight= tf.constant(1.0, dtype=tf.float32)
-ODE_weight= tf.constant(1.0, dtype=tf.float32)
-data_weight= tf.constant(1.0, dtype=tf.float32)
-
-
-### Data Import
-data = np.genfromtxt('data/data.csv', delimiter=',', skip_header=1)
-test_data = np.genfromtxt('data/data_test.csv', delimiter=',', skip_header=1)
 
 ### Organise Data
 # Set batch size
@@ -85,11 +96,6 @@ X_test, y_test = test_data[:, :1], test_data[:, 1:]
 
 
 class ParameterLayer(tf.keras.layers.Layer):
-    '''
-    adding extra layer for parameter output
-
-    code from notebook, modified by chat gpt
-    '''
     def __init__(self, parameters, trainable=True):
         super(ParameterLayer, self).__init__()
         self._parameters = tf.convert_to_tensor(parameters, dtype=tf.float32)
@@ -104,8 +110,8 @@ class ParameterLayer(tf.keras.layers.Layer):
             trainable=self.trainable
         )
     def call(self, inputs):
-        # Define the forward pass here
-        return inputs #* self.parameters 
+        # when called just return unchanged inputs
+        return inputs 
 
     def get_config(self):
         config = super().get_config()
@@ -125,8 +131,8 @@ def u_net(input_layer, n_rates):
     """Definition of the network for u prediction."""
 
     hidden = input_layer
-    for _ in range(2):
-        hidden = tf.keras.layers.Dense(50, activation="tanh")(hidden)
+    for _ in range(3):
+        hidden = tf.keras.layers.Dense(128, activation=activation_function)(hidden)
     output = tf.keras.layers.Dense(n_rates)(hidden)
     return output
 
@@ -135,24 +141,12 @@ def f_net(input_layers, n_ODEs, parameters_init=None):
 
     hidden = tf.keras.layers.Concatenate()(input_layers)
     for _ in range(2):
-        hidden = tf.keras.layers.Dense(50, activation="tanh")(hidden)
+        hidden = tf.keras.layers.Dense(50, activation=activation_function)(hidden)
     output = tf.keras.layers.Dense(n_ODEs)(hidden)
     output = ParameterLayer(parameters_init)(output)
     return output
 
 def create_PINN(n_rates, n_ODEs, parameters_init=None, verbose=False):
-    """Definition of a physics-informed neural network.
-
-    Args:
-    ----
-    a_init: initial value for parameter a
-    b_init: initial value for parameter b
-    verbose: boolean, indicate whether to show the model summary
-
-    Outputs:
-    --------
-    model: the PINN model
-    """
     # Input
     t_input = tf.keras.Input(shape=(1,), name="time")
 
@@ -172,19 +166,7 @@ def create_PINN(n_rates, n_ODEs, parameters_init=None, verbose=False):
 
 
 @tf.function
-def ODE_residual_calculator(t, model,n_u):
-    """ODE residual calculation.
-
-    Args:
-    ----
-    t: temporal coordinate
-    model: PINN model
-
-    Outputs:
-    --------
-    ODE_residual: residual of the governing ODE
-    """
-
+def ODE_residual_calculator(t, model):
     # Retrieve parameters
     parameters=model.layers[-1].parameters
 
@@ -200,13 +182,7 @@ def ODE_residual_calculator(t, model,n_u):
 
     # Compute residuals
     res_arr=ODE_residual(du_dt,f,u,parameters)
-    '''
-    res1 = du1_dt - f[:, :1]
-    res2 = du2_dt - f[:, 1:]
-    res3 = du3_dt - (a*u[:, :1]*u[:, 1:2] + b)
-    ODE_residual = tf.concat([res1, res2, res3], axis=1)
-    '''
-    print(f)
+    
     res_arr = tf.convert_to_tensor(res_arr, dtype=tf.float32)
     return res_arr
 
@@ -239,7 +215,7 @@ def train_step(X_ODE, X, y,u_init,f_init,parameters_init,n_u,n_f,n_parameters, I
         y_pred_IC, _ = model(tf.zeros((1, 1)))
 
         # Equation residual
-        ODE_res = ODE_residual_calculator(t=X_ODE, model=model,n_u=n_u)
+        ODE_res = ODE_residual_calculator(t=X_ODE, model=model)
 
         # Data loss
         y_pred_data, _ = model(X)
@@ -300,7 +276,7 @@ val_loss_hist = []
 params_list = []
 
 # Set up optimizer
-optimizer = keras.optimizers.Adam(learning_rate=0.002)
+optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
 
 with tf.device("CPU:0"):
 
@@ -338,22 +314,7 @@ with tf.device("CPU:0"):
 
         # Parameter recording
         params_list.append(PINN.layers[-1].parameters.numpy())
-        '''
-        ####### Validation
-        val_res = ODE_residual_calculator(tf.reshape(tf.linspace(0.0, 10.0, 1000), [-1, 1]), PINN,n_u=n_u)
-        val_ODE = tf.cast(tf.reduce_mean(tf.square(val_res)), tf.float32)
 
-        u_init=tf.constant([[1.0, 0.8, 0.5]])
-        val_pred_init, _ = PINN.predict(tf.zeros((1, 1)))
-        val_IC = tf.reduce_mean(tf.square(val_pred_init - u_init))
-        #print(f"val_IC: {val_IC.numpy():.4e}, val_ODE: {val_ODE.numpy():.4e}, lr: {PINN.optimizer.lr.numpy():.2e}")
-        print(f"val_IC: {val_IC.numpy():.4e}, val_ODE: {val_ODE.numpy():.4e}, lr: {PINN.optimizer.learning_rate.numpy():.2e}")
-
-        
-        # Callback at the end of epoch
-        callbacks.on_epoch_end(epoch, logs={'val_loss': val_IC+val_ODE})
-        val_loss_hist.append(val_IC+val_ODE)
-        '''
         ####### Validation
         val_res = ODE_residual_calculator(X_train_data, PINN,n_u=n_u)
         val_ODE = tf.cast(tf.reduce_mean(tf.square(val_res)), tf.float32)

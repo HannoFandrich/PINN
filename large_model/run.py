@@ -8,7 +8,7 @@ from collections import defaultdict
 
 
 u_init = np.array([1.0, 0.5, 0.3, 0.7, 1.2, 0.6, 0.4, 0.8, 0.9, 1.1, 0.2])
-params = np.array([1, 0.1, 0.1, 1.0, 1.0, 0., 10, 3, 3, 0.1, 2, 0.2, 0.3 ])
+params = np.array([1, 0.1, 0.1, 1.0, 1.0, 0., 10, 3, 3, 0.1, 2, 0.2, 0.3 ]) 
 t_span= [0,10]
 obs_num=100000
 

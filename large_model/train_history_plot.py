@@ -27,7 +27,10 @@ fig.savefig('plots/loss_history.png',dpi=200)
 
 
 df_params=pd.read_csv('results/parameter_history.csv',sep=',')
+
+params = np.array([1, 0.1, 0.1, 1.0, 1.0, 0., 10, 3, 3, 0.1, 2, 0.2, 0.3 ]) 
 n_params=df_params.shape[1]-1
+n_params=5
 
 fig, ax = plt.subplots(1,n_params, figsize=(4*n_params, 4))
 for i in range(n_params):
@@ -35,7 +38,7 @@ for i in range(n_params):
     ax[i].set_ylabel('parameter'+str(i+1), fontsize=14)
     ax[i].set_xlabel('training epoch', fontsize=14)
     #ax[0].set_ylim((-2.2, -0.7))
-    #ax[0].axhline(y=-2, color='r', linestyle='--')
+    ax[i].axhline(y=params[i], color='r', linestyle='--')
 
 for axs in ax:
     axs.tick_params(axis='both', which='major', labelsize=12)
@@ -47,6 +50,7 @@ fig.savefig('plots/parameter_history.png',dpi=80*n_params)
 df_test=pd.read_csv('data/data_test.csv',sep=',')
 df_data=pd.read_csv('results/model_data.csv',sep=',')
 n_rates=df_data.shape[1]-1
+n_rates = 5
 
 fig, ax = plt.subplots(1,n_rates, figsize=(4*n_rates, 4))
 for i in range(n_rates):
